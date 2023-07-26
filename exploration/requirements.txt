@@ -4,3 +4,4 @@ jupyter
 scipy
 numpy
 matplotlib
+pymkv==2.0.0 # https://github.com/GitBib/pymkv
