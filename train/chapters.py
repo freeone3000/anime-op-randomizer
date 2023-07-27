@@ -72,17 +72,3 @@ def get_op_chapter(filename: str) -> Optional[Chapter]:
     except Exception as e:
         print(e)
         return None
-
-
-def get_representative_episode(dirname: str) -> Optional[str]:
-    """
-    Gets a representative file (not the first, not the last, etc) from a directory
-    containing anime files. MUST be an MKV.
-    :param dirname: The directory containing anime files
-    :return: A representative episode filename
-    """
-    files = [x for x in os.listdir(dirname) if x.endswith(".mkv")]
-    if len(files) == 0:
-        return None
-    files.sort()
-    return os.path.join(dirname, files[len(files) // 2])
