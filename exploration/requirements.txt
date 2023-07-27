@@ -5,4 +5,5 @@ scipy
 numpy
 matplotlib
 pymkv==2.0.0 # https://github.com/GitBib/pymkv
-pyAudioAnalysis==0.3.14 #
+pyAudioAnalysis==0.3.14
+lxml==4.9.3
