@@ -7,6 +7,28 @@ import contextlib
 from io import BytesIO
 
 
+class Cut(object):
+    vid_fn: str
+    start_time: Optional[str]
+    end_time: Optional[str]
+
+    def __init__(self, vid_fn: str, start_time: Optional[str], end_time: Optional[str]):
+        self.vid_fn = vid_fn
+        self.start_time = start_time
+        self.end_time = end_time
+
+    def __repr__(self) -> str:
+        return "%s (%s - %s)" % (self.vid_fn, self.start_time, self.end_time)
+
+    def to_ffmpeg(self) -> List[str]:
+        cmd = []
+        if self.start_time is not None:
+            cmd.extend(['-ss', self.start_time])
+        if self.end_time is not None:
+            cmd.extend(['-to', self.end_time])
+        return cmd
+
+
 class StreamContainer(contextlib.AbstractContextManager):
     """
     A context manager that acts as a video stream.
@@ -14,36 +36,42 @@ class StreamContainer(contextlib.AbstractContextManager):
     """
     _subs_fn: Optional[str]
     _cmd: List[str]
-    _proc_stream: Optional[BytesIO] = None
+    _proc_stream: subprocess.Popen[bytes] = None
 
     def __init__(self, cmd: List[str], subs_fn: Optional[str]):
         self._cmd = cmd
         self._subs_fn = subs_fn
 
     def __enter__(self):
-        (_, self._proc_stream) = subprocess.Popen(self._cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)\
-            .communicate()
+        self._proc_stream = subprocess.Popen(self._cmd,
+                                             stdin=subprocess.DEVNULL,
+                                             stdout=subprocess.PIPE,
+                                             stderr=subprocess.DEVNULL,
+                                             text=False,
+                                             universal_newlines=False,
+                                             close_fds=True)
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._proc_stream is not None:
-            self._proc_stream.close()
+            self._proc_stream.stdout.close()
         if self._subs_fn is not None:
             try:
                 os.remove(self._subs_fn)
             except OSError:
                 pass
 
-    def read(self) -> bytes:
-        if self._proc_stream:
+    def read(self, b: int = -1) -> bytes:
+        if self._proc_stream is None:
             raise Exception("Stream not yet opened (use with!)")
-        return self._proc_stream.read()
+        return self._proc_stream.stdout.read(b)
 
 
-def get_video_clip(vid_fn: str, start_time: str, end_time: str) -> StreamContainer:
+def get_video_clip(cut: Cut) -> StreamContainer:
     cuda = True  # TODO Determine
-    subs_fn, lang = _find_jpn_audio_extract_subs(vid_fn)
+    subs_fn, lang = _find_jpn_audio_extract_subs(cut.vid_fn)
     if lang is None:
-        amap = '-0:a'
+        amap = '0:a'
     else:
         amap = '0:a:language:jpn'
 
@@ -53,7 +81,7 @@ def get_video_clip(vid_fn: str, start_time: str, end_time: str) -> StreamContain
     # use our input video,
     # taking video stream zero from the input and doing a direct copy of the japanese audio track
     cmd.extend([
-        '-i', vid_fn,
+        '-i', cut.vid_fn,
         '-map', '0:v', '-map', amap, '-c:a', 'copy'
     ])
 
@@ -73,12 +101,15 @@ def get_video_clip(vid_fn: str, start_time: str, end_time: str) -> StreamContain
 
     # copy from start time to end time,
     # output format mp4, to standard out
+    cmd.extend(cut.to_ffmpeg())
     cmd.extend([
-        '-ss', start_time, '-to', end_time,
         '-y', '-f', 'mpegts', '-'
     ])
 
     return StreamContainer(cmd, subs_fn)
+
+
+ASS_FORMATS = ["S_TEXT/ASS", "SubStationAlpha"]  # all the ways we've seen ASS
 
 
 def _find_jpn_audio_extract_subs(vid_fn: str) -> (Optional[str], Optional[int]):
@@ -101,7 +132,7 @@ def _find_jpn_audio_extract_subs(vid_fn: str) -> (Optional[str], Optional[int]):
             # language is too screwy, so we go with default here
             # this might have some issues with dual-audio, but we can deal with that later.
             elif track.track_type == "subtitles" and track.language == "jpn":
-                if track.track_codec == "S_TEXT/ASS":
+                if track.track_codec in ASS_FORMATS:
                     fn = "subs.ass"
                     track.extract(fn)
                 else:
