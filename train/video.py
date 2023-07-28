@@ -3,8 +3,43 @@ from typing import *
 import subprocess
 import os
 from pymkv import MKVFile
+import contextlib
+from io import BytesIO
 
-def cut_video(vid_fn: str, start_time: str, end_time: str) -> str:
+
+class StreamContainer(contextlib.AbstractContextManager):
+    """
+    A context manager that acts as a video stream.
+    Use with `with` for proper cleanup.
+    """
+    _subs_fn: Optional[str]
+    _cmd: List[str]
+    _proc_stream: Optional[BytesIO] = None
+
+    def __init__(self, cmd: List[str], subs_fn: Optional[str]):
+        self._cmd = cmd
+        self._subs_fn = subs_fn
+
+    def __enter__(self):
+        (_, self._proc_stream) = subprocess.Popen(self._cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)\
+            .communicate()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._proc_stream is not None:
+            self._proc_stream.close()
+        if self._subs_fn is not None:
+            try:
+                os.remove(self._subs_fn)
+            except OSError:
+                pass
+
+    def read(self) -> bytes:
+        if self._proc_stream:
+            raise Exception("Stream not yet opened (use with!)")
+        return self._proc_stream.read()
+
+
+def get_video_clip(vid_fn: str, start_time: str, end_time: str) -> StreamContainer:
     cuda = True  # TODO Determine
     subs_fn, lang = _find_jpn_audio_extract_subs(vid_fn)
     if lang is None:
@@ -37,14 +72,13 @@ def cut_video(vid_fn: str, start_time: str, end_time: str) -> str:
         cmd.extend(['-c:v', 'h264_nvenc'])
 
     # copy from start time to end time,
-    # output format mp4, to standard out (TODO should not be standard out)
+    # output format mp4, to standard out
     cmd.extend([
         '-ss', start_time, '-to', end_time,
         '-y', '-f', 'mpegts', '-'
     ])
-    # cleanup
-    if subs_fn is not None:
-        os.remove(subs_fn)
+
+    return StreamContainer(cmd, subs_fn)
 
 
 def _find_jpn_audio_extract_subs(vid_fn: str) -> (Optional[str], Optional[int]):
