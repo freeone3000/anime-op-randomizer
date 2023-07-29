@@ -16,7 +16,8 @@ def serve(directory: str):
     (playlist, _) = scan(directory)
     print(playlist)
 
-    # TODO UDP multicast
+    # TODO handle HTTP
+    # TODO Make all videos same resolution (1080p)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as ss:
         ss.bind(("0.0.0.0", TCP_PORT))
         ss.listen()

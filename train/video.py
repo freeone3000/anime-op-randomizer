@@ -85,15 +85,19 @@ def get_video_clip(cut: Cut) -> StreamContainer:
         '-map', '0:v', '-map', amap, '-c:a', 'copy'
     ])
 
+    # scale to 1080p with side padding
+    if cuda:
+        subs_vf = 'pad=ih*16/9:ih:(ow-iw)/2:(oh-ih)/2,setsar=1,hwupload_cuda,scale_npp=1920:1080:interp_algo=lanczos'
+    else:
+        subs_vf = 'pad=ih*16/9:ih:(ow-iw)/2:(oh-ih)/2,setsar=1,scale=1920:1080:interp_algo=lanczos'
+
+    # if we have subtitles, add them to the filter chain *before* scaling
     if subs_fn is not None:
-        # if we have subtitles,
-        subs_vf = 'copy'
         if subs_fn.endswith(".srt"):
-            subs_vf = "subtitles=%s" % (subs_fn,)
+            subs_vf = "subtitles=%s,%s" % (subs_fn, subs_vf)
         elif subs_fn.endswith(".ass"):
-            subs_vf = "ass=%s" % (subs_fn,)
-        # add them
-        cmd.extend(['-vf', subs_vf])
+            subs_vf += "ass=%s,%s" % (subs_fn, subs_vf)
+    cmd.extend(['-vf', subs_vf])
 
     if cuda:
         # make sure to encode using nvenc if we have cuda as well
