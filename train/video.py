@@ -4,7 +4,6 @@ import subprocess
 import os
 from pymkv import MKVFile
 import contextlib
-from io import BytesIO
 
 
 class Cut(object):
@@ -92,7 +91,7 @@ def get_video_clip(cut: Cut) -> StreamContainer:
         '-map', '0:v', '-map', amap,
     ])
 
-    # scale to 1080p with side padding
+    # scale to 1080p with side padding; inconsistent frame sizes make vlc freak out
     if cuda:
         subs_vf = 'pad=ih*16/9:ih:(ow-iw)/2:(oh-ih)/2,setsar=1,format=nv12,hwupload_cuda,scale_npp=1920:1080:interp_algo=lanczos'
     else:
@@ -111,8 +110,12 @@ def get_video_clip(cut: Cut) -> StreamContainer:
         cmd.extend(['-c:v', 'h264_nvenc'])
 
     # copy from start time to end time,
-    # output format mp4, to standard out
     cmd.extend(cut.to_ffmpeg())
+
+    # audio needs to be consistent (this is 2-ch aac 128k cbr)
+    cmd.extend(['-ac', '2', '-c:a', 'libfdk_aac', '-b:a', '128k'])
+
+    # output format mpeg-ts, to standard out
     cmd.extend([
         '-y', '-f', 'mpegts', '-'
     ])
