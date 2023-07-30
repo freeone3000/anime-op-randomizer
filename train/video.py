@@ -75,10 +75,12 @@ def get_video_clip(cut: Cut) -> StreamContainer:
         subs_fn = None
         lang = None
 
-    if lang is None:
-        amap = '0:a'
-    else:
-        amap = '0:a:language:jpn'
+    # TODO This fails for ef
+    # if lang is None:
+    #     amap = '0:a'
+    # else:
+    #     amap = '0:a:language:jpn'
+    amap = '0:a'
 
     # use our custom ffmpeg
     cmd = ['/home/jasmine/bin/ffmpeg']
@@ -87,7 +89,7 @@ def get_video_clip(cut: Cut) -> StreamContainer:
     # taking video stream zero from the input and doing a direct copy of the japanese audio track
     cmd.extend([
         '-i', cut.vid_fn,
-        '-map', '0:v', '-map', amap, '-c:a', 'copy'
+        '-map', '0:v', '-map', amap,
     ])
 
     # scale to 1080p with side padding
