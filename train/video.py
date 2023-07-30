@@ -92,7 +92,7 @@ def get_video_clip(cut: Cut) -> StreamContainer:
 
     # scale to 1080p with side padding
     if cuda:
-        subs_vf = 'pad=ih*16/9:ih:(ow-iw)/2:(oh-ih)/2,setsar=1,hwupload_cuda,scale_npp=1920:1080:interp_algo=lanczos'
+        subs_vf = 'pad=ih*16/9:ih:(ow-iw)/2:(oh-ih)/2,setsar=1,format=nv12,hwupload_cuda,scale_npp=1920:1080:interp_algo=lanczos'
     else:
         subs_vf = 'pad=ih*16/9:ih:(ow-iw)/2:(oh-ih)/2,setsar=1,scale=1920:1080:interp_algo=lanczos'
 
