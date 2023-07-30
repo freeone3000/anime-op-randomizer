@@ -27,24 +27,27 @@ def serve(directory: str):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as ss:
         ss.bind(("0.0.0.0", TCP_PORT))
         ss.listen()
-        (conn, addr) = ss.accept()
-        handle_http_headers(conn)
 
         while True:
-            random.shuffle(playlist)
-            for clip in playlist:
-                print("Playing %s" % (clip,))
-                count = 0
-                with video.get_video_clip(clip) as stream:
-                    while True:
-                        data = stream.read(BUF_SIZE)
-                        if not data:
-                            print("End of stream for %s after %s bytes" % (clip, count))
-                            break
-                        count += len(data)
-                        conn.send("%x\r\n".encode("utf-8") % len(data)) # size of chunk
-                        conn.sendall(data)
-                        conn.send("\r\n".encode("utf-8")) # eoc
+            try:
+                (conn, addr) = ss.accept()
+                handle_http_headers(conn)
+                random.shuffle(playlist)
+                for clip in playlist:
+                    print("Playing %s" % (clip,))
+                    count = 0
+                    with video.get_video_clip(clip) as stream:
+                        while True:
+                            data = stream.read(BUF_SIZE)
+                            if not data:
+                                print("End of stream for %s after %s bytes" % (clip, count))
+                                break
+                            count += len(data)
+                            conn.send("%x\r\n".encode("utf-8") % len(data)) # size of chunk
+                            conn.sendall(data)
+                            conn.send("\r\n".encode("utf-8")) # eoc
+            except:
+                pass
 
 
 if __name__ == "__main__":
