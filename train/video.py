@@ -69,7 +69,12 @@ class StreamContainer(contextlib.AbstractContextManager):
 
 def get_video_clip(cut: Cut) -> StreamContainer:
     cuda = True  # TODO Determine
-    subs_fn, lang = _find_jpn_audio_extract_subs(cut.vid_fn)
+    try:
+        subs_fn, lang = _find_jpn_audio_extract_subs(cut.vid_fn)
+    except ValueError:  # TODO MKVFile is way too strict about BCP47. these are fansubbers :P
+        subs_fn = None
+        lang = None
+
     if lang is None:
         amap = '0:a'
     else:
